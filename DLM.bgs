@@ -1,0 +1,172 @@
+dim addr(6)
+dim connected
+dim value_data
+dim duty_cycle
+dim tmp(10)
+dim flag(1)
+dim prevstate # Flag to determine what the previous state was
+
+# Boot event listener
+event system_boot(major,minor,patch,build,ll_version,protocol,hw)
+	
+	# Setup the Port Directions for the LEDs
+	call hardware_io_port_config_direction(1, $3)
+	call hardware_io_port_write(1, $3, $00)
+	
+	# Setup the Port Directions for the TI Timer
+	call hardware_io_port_config_direction(0, $1E)
+	call hardware_io_port_write(0, $1E, $00)
+	
+	#Get local BT address and write it to the SI service serial # characteristic
+	call system_address_get( )(addr(0:6))
+	call attributes_write(xgatt_dis_2a25,0,6,addr(0:5))
+	
+	# Enable the External Hardware Interrupt for the External TI Nano-Watt Timer
+	call hardware_io_port_config_irq(0, $81, 0)
+	
+	# Set prevstate flag to 1 (indicating that the chip is on)
+	prevstate = 1
+	
+	# Device is not connected yet
+	connected = 0
+	
+	# Set advertisement interval to min 20ms to max 30ms. Use all advertisement channels
+	call gap_set_adv_parameters(32,48,7)
+	
+	# Start advertisement (generic discoverable, directed connectable)
+	call gap_set_mode(1,1)
+    call sm_set_bondable_mode(1)
+	
+	# Start single shot timer with 30 second interval. Handle ID 1
+	# 1 second = $8000 (32.768kHz crystal)
+	call hardware_set_soft_timer($F0000, 1, 1)
+	
+end
+
+# Timer event(s) listener
+event hardware_soft_timer(handle)
+    
+	# 30 second timer expired 
+	if handle = 1 then
+		# No connection after 30 seconds of advertising
+		if connected = 0 then
+			# Stop advertisement. Should go to PM3 Here
+			call gap_set_mode(0, 0)
+		end if
+	end if
+	
+	if handle = 2 then 
+		if connected = 0 then 
+			call gap_set_mode(0,0)
+			
+			# Play the Buzzer Here
+			
+			# Turn the external timer on here based on the old duty cycle
+			call hardware_io_port_write(1, $03, $03) # Red LED
+			
+			# Turn the timer on again
+			call hardware_io_port_write(0, $10, $10)
+			
+		end if
+	end if
+end
+
+event attributes_value(connection, reason, handle, offset, value_len, value_data2)
+	if handle=xgatt_dc_2a07
+	
+		duty_cycle = value_data2(0:1)
+		call attributes_write(xgatt_dc_2a08,0,1, 95)
+		
+		# 32 seconds
+		if duty_cycle = $01
+			call hardware_io_port_write(0, $0E, $00)
+		end if
+		
+		if duty_cycle = $02
+			call hardware_io_port_write(0, $0E, $02)
+		end if
+			
+		if duty_cycle = $03
+			call hardware_io_port_write(0, $0E, $0A)
+		end if
+		
+		if duty_cycle = $04
+			call hardware_io_port_write(0, $0E, $06)
+		end if
+		
+	end if
+end
+
+event hardware_io_port_status(delta, port, irq, state)
+
+	call hardware_io_port_write(1, $02, $00) # Red LED
+	
+	# Turn the external timer off
+	call hardware_io_port_write(0, $10, $00)
+		
+	# Turn on the connectable mode
+	call gap_set_mode(0,1)
+		
+	# Create a soft timer to check if the connection gets established
+	call hardware_set_soft_timer($27FFB, 2, 1)
+	
+	if state = $01 then
+	
+		# For some reason, state doesn't work as of yet.....wonder why
+		
+	end if
+	
+	if state = $80 then
+		
+		if prevstate = 1 then
+			prevstate = 0
+			# turn everything off
+			call gap_set_mode(0,0)
+		else
+		
+			prevstate = 1
+			# Set advertisement interval to min 20ms to max 30ms. Use all advertisement channels
+			call gap_set_adv_parameters(32,48,7)
+	
+			# Start advertisement (generic discoverable, directed connectable)
+			call gap_set_mode(1,1)
+			call sm_set_bondable_mode(1)
+	
+	
+			# Start single shot timer with 30 second interval. Handle ID 1
+			# 1 second = $8000 (32.768kHz crystal)
+			call hardware_set_soft_timer($F0000, 1, 1)
+			
+		end if
+		
+	end if
+
+end
+
+event connection_status(connection ,flags ,address ,address_type ,conn_interval ,timeout ,latency, bonding)
+	# Device is connected. 
+	# Set <connected> to true, or otherwise the advertisemnt timers will disconnect the device
+	connected = 1
+	
+	# Turn on Blue LED to indicate connection
+	call hardware_io_port_write(1, $01, $01) # Blue LED
+	
+	# End advertisement timers
+	call hardware_set_soft_timer(0, 2, 1)
+	call hardware_set_soft_timer(0, 1, 1)
+end
+
+event connection_disconnected(handle,result)
+	# Connection disconnected, restart connection procedure
+	connected = 0
+	
+	# Turn off the Blue LED after disconnect
+	call hardware_io_port_write(1, $01, $00) # Blue LED
+	
+	# Turn the external timer on
+	call hardware_io_port_write(1, $02, $02) # Red LED
+	call hardware_io_port_write(0, $10, $10)
+	
+	#Disable advertisement
+	call gap_set_mode(0,0)
+end

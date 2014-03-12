@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project>
+    <hardware in="hardware.xml" /> 
+    <gatt in="DLM_gatt.xml" />
+    <script in="DLM.bgs" />   
+	<image out="DLM.hex" />    
+    <device type="ble113" />
+	<boot fw="bootuart" />
+</project>

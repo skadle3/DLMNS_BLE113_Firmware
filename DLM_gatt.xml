@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration>
+
+    <service uuid="1800">
+      <description>Generic Access Profile</description>
+
+      <characteristic uuid="2a00">
+        <properties read="true" const="true" />
+        <value>DLMNS Tag #1</value>
+      </characteristic>
+
+      <characteristic uuid="2a01">
+        <properties read="true" const="true" />
+        <value type="hex">0512</value>
+      </characteristic>
+    </service>
+	
+	<service uuid="180A" >
+	
+      <characteristic uuid="2A29">
+        <properties read="true" const="true" />
+        <value>GT</value>
+      </characteristic>
+		
+      <characteristic uuid="2A24">
+        <properties read="true" const="true" />
+        <value>GT DLMNS</value>
+      </characteristic>
+		
+      <characteristic uuid="2A25" id="xgatt_dis_2a25" >
+		<properties read="true" />
+        <value type="hex" length="6" />
+      </characteristic>	
+	  
+    </service>
+    
+	<service uuid="00000000-0000-0000-0000-000001ab34e6" advertise="true" >
+		<description>DLMNS Proprietary Duty Cycle</description>
+		
+		<characteristic uuid="00000000-0000-0000-0000-00012530b0cd" id="xgatt_dc_2a07">
+			<properties read="true" write="true" />
+			<value type="hex" length="1" />
+		</characteristic>
+		
+		<characteristic uuid="00000000-0000-0000-0000-00345070ab01" id="xgatt_dc_2a08">
+			<properties read="true" write="true" />
+			<value type="hex" length="1" />
+		</characteristic>
+	
+	</service>
+	
+</configuration>
